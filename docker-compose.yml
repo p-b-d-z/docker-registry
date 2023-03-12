@@ -1,0 +1,36 @@
+version: '3'
+
+networks:
+  frontend:
+    external: true
+  backend:
+
+services:
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning --requirepass ${redis_secret}
+    networks:
+      backend:
+        aliases:
+          - redis
+    volumes: 
+      - /home/docker/config/docker-registry/cache:/data
+  registry:
+    image: registry:2
+    ports:
+    - "5000:5000"
+    environment:
+      REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR: redis
+      REGISTRY_REDIS_ADDR: redis:6379
+      REGISTRY_REDIS_PASSWORD: ${redis_secret}
+      REGISTRY_HTTP_SECRET: ${registry_http_secret}
+      REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
+    networks:
+      - frontend
+      - backend
+    volumes:
+      - /home/docker/config/docker-registry/data:/data
+      - /home/docker/config/docker-registry/auth:/auth
