@@ -2,27 +2,36 @@ version: '3'
 
 networks:
   frontend:
-    external: true
+    driver: bridge
   backend:
+    external: false
+    driver: bridge
 
 services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: reggie_cloudflared
+    command: tunnel --no-autoupdate run --token ${cloudflare_token}
+    networks:
+      frontend:
+      backend:
+        aliases:
+          - cloudflared
+    restart: always
   cache:
     image: redis:6.2-alpine
+    container_name: reggie_cache
     restart: always
-    ports:
-      - '6379:6379'
     command: redis-server --save 20 1 --loglevel warning --requirepass ${redis_secret}
     networks:
       backend:
         aliases:
           - redis
-    volumes: 
+    volumes:
       - /home/docker/config/docker-registry/cache:/data
-    restart: always
   registry:
     image: registry:2
-    ports:
-    - "5000:5000"
+    container_name: reggie_registry
     environment:
       REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR: redis
       REGISTRY_REDIS_ADDR: redis:6379
@@ -30,13 +39,10 @@ services:
       REGISTRY_HTTP_SECRET: ${registry_http_secret}
       REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY: /data
     networks:
-      - frontend
-      - backend
+      backend:
+        aliases:
+          - reggie
     volumes:
       - /home/docker/config/docker-registry/data:/data
       - /home/docker/config/docker-registry/auth:/auth
-    restart: always
-  cloudflared:
-    image: cloudflare/cloudflared:latest
-    command: tunnel --no-autoupdate run --token ${cloudflare_token}
     restart: always
